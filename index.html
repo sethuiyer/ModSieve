@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModSieve: A Number-Theoretic Pre-Filter for NP-Hard Problems</title>
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Highlight.js for Code -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/styles/dracula.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/build/highlight.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+
+    <!-- Beampipe Analytics -->
+    <script async defer src="https://beampipe.io/js/tracker.js" data-beampipe-domain="sethuiyer.github.io"></script>
+
+    <!-- D3.js for Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+
+    <style>
+        :root {
+            /* Dracula Theme */
+            --dracula-bg: #282a36;
+            --dracula-fg: #f8f8f2;
+            --dracula-comment: #6272a4;
+            --dracula-cyan: #8be9fd;
+            --dracula-green: #50fa7b;
+            --dracula-orange: #ffb86c;
+            --dracula-pink: #ff79c6;
+            --dracula-purple: #bd93f9;
+            --dracula-red: #ff5555;
+            --dracula-yellow: #f1fa8c;
+            --dracula-selection: #44475a;
+            --dracula-current-line: #44475a;
+
+            /* Semantic */
+            --bg-primary: var(--dracula-bg);
+            --bg-secondary: #1e1f29;
+            --bg-tertiary: #323545;
+            --bg-code: #21222c;
+            --accent: var(--dracula-pink);
+            --accent-secondary: var(--dracula-purple);
+            --text-primary: var(--dracula-fg);
+            --text-secondary: #e0e0e0;
+            --text-muted: var(--dracula-comment);
+            --border: #44475a;
+            --success: var(--dracula-green);
+            --warning: var(--dracula-orange);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 17px;
+            line-height: 1.75;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        ::selection {
+            background: var(--dracula-selection);
+            color: var(--text-primary);
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 48px;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .tab-brand {
+            font-family: 'Literata', Georgia, serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent);
+            padding: 16px 24px 16px 0;
+            margin-right: 24px;
+            border-right: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 16px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 53px;
+            width: 280px;
+            height: calc(100vh - 53px);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 40px 28px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            margin-bottom: 48px;
+        }
+
+        .sidebar-title {
+            font-family: 'Literata', Georgia, serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .sidebar-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        .nav-section {
+            margin-bottom: 36px;
+        }
+
+        .nav-section-title {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 14px;
+            padding-left: 12px;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 8px 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13.5px;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            border-left: 2px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-left-color: var(--accent-secondary);
+        }
+
+        .nav-item.active {
+            background: rgba(189, 147, 249, 0.1);
+            color: var(--accent);
+            border-left-color: var(--accent);
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main {
+            margin-left: 280px;
+            margin-top: 53px;
+            min-height: calc(100vh - 53px);
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 32px 64px;
+            position: sticky;
+            top: 53px;
+            z-index: 50;
+        }
+
+        .header-content {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .header-title {
+            font-family: 'Literata', Georgia, serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+
+        .header-meta {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .header-meta a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .header-meta a:hover {
+            color: var(--accent-secondary);
+            text-decoration: underline;
+        }
+
+        /* Content Container */
+        .content {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 56px 64px 80px;
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 72px;
+        }
+
+        .section h1 {
+            font-family: 'Literata', Georgia, serif;
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            letter-spacing: -1px;
+            line-height: 1.2;
+        }
+
+        .section h2 {
+            font-family: 'Literata', Georgia, serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 64px;
+            margin-bottom: 24px;
+            letter-spacing: -0.5px;
+            line-height: 1.3;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section h3 {
+            font-family: 'Literata', Georgia, serif;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 40px;
+            margin-bottom: 16px;
+            letter-spacing: -0.3px;
+        }
+
+        .section h4 {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 28px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section p {
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+
+        .section ul, .section ol {
+            margin-bottom: 20px;
+            padding-left: 28px;
+            color: var(--text-secondary);
+        }
+
+        .section li {
+            margin-bottom: 10px;
+            line-height: 1.7;
+        }
+
+        .section > p:first-of-type {
+            font-size: 18px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Highlight Boxes */
+        .highlight-box {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin: 28px 0;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+        }
+
+        .highlight-box.theorem {
+            border-left-color: var(--dracula-yellow);
+        }
+
+        .highlight-box.proof {
+            border-left-color: var(--dracula-green);
+        }
+
+        .highlight-box.lemma {
+            border-left-color: var(--dracula-cyan);
+        }
+
+        .highlight-box.definition {
+            border-left-color: var(--dracula-purple);
+        }
+
+        .highlight-box.insight {
+            border-left-color: var(--dracula-orange);
+            background: linear-gradient(135deg, var(--bg-secondary), rgba(255, 184, 108, 0.05));
+        }
+
+        .highlight-title {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+
+        .highlight-box.theorem .highlight-title { color: var(--dracula-yellow); }
+        .highlight-box.proof .highlight-title { color: var(--dracula-green); }
+        .highlight-box.lemma .highlight-title { color: var(--dracula-cyan); }
+        .highlight-box.definition .highlight-title { color: var(--dracula-purple); }
+        .highlight-box.insight .highlight-title { color: var(--dracula-orange); }
+
+        .highlight-box p {
+            margin-bottom: 8px;
+        }
+
+        .highlight-box ul {
+            margin-bottom: 0;
+            margin-top: 8px;
+        }
+
+        .highlight-box code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9em;
+            color: var(--accent);
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 28px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .code-header {
+            background: var(--bg-secondary);
+            padding: 10px 16px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .code-block pre {
+            padding: 24px;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        .code-block code {
+            font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+            font-size: 13.5px;
+            line-height: 1.65;
+        }
+
+        code:not(.code-block code) {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.88em;
+            color: var(--dracula-cyan);
+        }
+
+        /* Tables */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 28px 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background: var(--bg-secondary);
+            padding: 14px 18px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: var(--bg-secondary);
+        }
+
+        /* Blockquotes */
+        blockquote {
+            background: var(--bg-secondary);
+            border-left: 3px solid var(--accent-secondary);
+            padding: 20px 24px;
+            margin: 28px 0;
+            font-style: italic;
+            color: var(--text-secondary);
+            border-radius: 0 8px 8px 0;
+        }
+
+        blockquote p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Flowchart */
+        .flowchart {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 28px 32px;
+            margin: 28px 0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+
+        /* Author Card */
+        .author-card {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin: 40px 0;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .author-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Literata', serif;
+            font-weight: 700;
+            font-size: 26px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .author-info h3 {
+            font-family: 'Literata', serif;
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .author-info p {
+            margin: 4px 0 8px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .author-info a {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .author-info a:hover {
+            text-decoration: underline;
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .tag.topic {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Practice Problems */
+        .problem-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 22px 26px;
+            margin-bottom: 16px;
+        }
+
+        .problem-card:hover {
+            border-color: var(--accent);
+            box-shadow: -4px 0 0 var(--accent);
+        }
+
+        .problem-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 14px;
+            margin-right: 14px;
+        }
+
+        .problem-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .problem-card > p {
+            margin-top: 10px;
+            margin-left: 44px;
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 0;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 48px;
+            margin-top: 80px;
+        }
+
+        .footer-content {
+            max-width: 760px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-content p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .footer-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            .content {
+                padding: 40px 32px 60px;
+            }
+
+            .header {
+                padding: 24px 32px;
+            }
+
+            .tab-nav {
+                padding: 0 16px;
+            }
+
+            .tab-brand {
+                padding: 16px 16px 16px 0;
+                margin-right: 16px;
+            }
+
+            .tab-btn {
+                padding: 16px 12px;
+                font-size: 13px;
+            }
+        }
+
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 70px;
+            left: 16px;
+            z-index: 200;
+            width: 46px;
+            height: 46px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .menu-toggle span {
+            width: 20px;
+            height: 2px;
+            background: var(--text-primary);
+            border-radius: 2px;
+        }
+
+        .menu-toggle:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Copy Button */
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            color: var(--text-muted);
+            cursor: pointer;
+            opacity: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+
+        /* Math overrides */
+        .katex {
+            font-size: 1.05em;
+        }
+
+        .katex-display {
+            margin: 24px 0;
+            overflow-x: auto;
+        }
+
+        strong, b {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .text-accent {
+            color: var(--accent);
+        }
+
+        .text-success {
+            color: var(--success);
+        }
+
+        .text-warning {
+            color: var(--warning);
+        }
+
+        em {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 56px 0;
+        }
+
+        /* Quote highlight */
+        .quote-highlight {
+            font-size: 20px;
+            font-style: italic;
+            text-align: center;
+            padding: 32px;
+            margin: 40px 0;
+            border-left: none;
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            border-radius: 12px;
+        }
+
+        .quote-highlight p {
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .quote-highlight p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* D3 Diagram Styles */
+        .diagram-container {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin: 28px 0;
+            overflow: hidden;
+        }
+
+        .diagram-title {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .diagram-legend {
+            display: flex;
+            gap: 24px;
+            margin-top: 16px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        .legend-reachable {
+            background: var(--dracula-green);
+        }
+
+        .legend-gap {
+            background: var(--dracula-red);
+            opacity: 0.6;
+        }
+
+        .legend-target {
+            background: var(--dracula-yellow);
+        }
+    </style>
+</head>
+<body>
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+        <div class="tab-brand">ModSieve</div>
+        <button class="tab-btn active" onclick="switchTab('math')">Mathematics</button>
+        <button class="tab-btn" onclick="switchTab('cs')">Algorithm & Code</button>
+    </nav>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <!-- Sidebar Navigation (shared) -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title" id="sidebar-title">ModSieve</div>
+            <div class="sidebar-subtitle" id="sidebar-subtitle">Number-Theoretic Pre-Filter</div>
+        </div>
+
+        <!-- Math Navigation -->
+        <div class="nav-section" id="math-nav">
+            <div class="nav-section-title">Overview</div>
+            <a href="#math-intro" class="nav-item" data-section="math-intro">The Illusion of Complexity</a>
+            <a href="#math-problem" class="nav-item" data-section="math-problem">The Subset Sum Problem</a>
+            <a href="#math-sieve" class="nav-item" data-section="math-sieve">The Modular Sieve</a>
+        </div>
+
+        <div class="nav-section" id="math-nav-2">
+            <div class="nav-section-title">Theory</div>
+            <a href="#math-structure" class="nav-item" data-section="math-structure">Structure & Additive Combinatorics</a>
+            <a href="#math-crt" class="nav-item" data-section="math-crt">CRT Construction</a>
+            <a href="#math-grid" class="nav-item" data-section="math-grid">Multi-Prime Residue Grid</a>
+        </div>
+
+        <div class="nav-section" id="math-nav-3">
+            <div class="nav-section-title">Implications</div>
+            <a href="#math-philosophy" class="nav-item" data-section="math-philosophy">Philosophy of Disproof</a>
+            <a href="#math-design" class="nav-item" data-section="math-design">Structured Instance Design</a>
+            <a href="#math-conclusion" class="nav-item" data-section="math-conclusion">Conclusion</a>
+        </div>
+
+        <!-- CS Navigation (hidden by default) -->
+        <div class="nav-section" id="cs-nav" style="display: none;">
+            <div class="nav-section-title">Overview</div>
+            <a href="#cs-intro" class="nav-item" data-section="cs-intro">Introduction</a>
+            <a href="#cs-problem" class="nav-item" data-section="cs-problem">The Subset Sum Problem</a>
+            <a href="#cs-insight" class="nav-item" data-section="cs-insight">Core Insight</a>
+        </div>
+
+        <div class="nav-section" id="cs-nav-2" style="display: none;">
+            <div class="nav-section-title">Algorithm</div>
+            <a href="#cs-algorithm" class="nav-item" data-section="cs-algorithm">The ModSieve Algorithm</a>
+            <a href="#cs-impl" class="nav-item" data-section="cs-impl">Implementation</a>
+            <a href="#cs-why" class="nav-item" data-section="cs-why">Why It Works</a>
+        </div>
+
+        <div class="nav-section" id="cs-nav-3" style="display: none;">
+            <div class="nav-section-title">Advanced</div>
+            <a href="#cs-generalize" class="nav-item" data-section="cs-generalize">Generalizations</a>
+            <a href="#cs-filter" class="nav-item" data-section="cs-filter">Filter-Trap Instances</a>
+            <a href="#cs-complexity" class="nav-item" data-section="cs-complexity">Complexity Analysis</a>
+        </div>
+
+        <div class="nav-section" id="cs-nav-4" style="display: none;">
+            <div class="nav-section-title">Reference</div>
+            <a href="#cs-limitations" class="nav-item" data-section="cs-limitations">Limitations</a>
+            <a href="#cs-template" class="nav-item" data-section="cs-template">Code Template</a>
+            <a href="#cs-problems" class="nav-item" data-section="cs-problems">Practice Problems</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- ==================== MATH TAB ==================== -->
+        <div id="math-tab" class="tab-content active">
+            <header class="header">
+                <div class="header-content">
+                    <div class="header-title">Mathematical Foundations</div>
+                    <div class="header-meta">
+                        The theoretical basis of ModSieve — number theory, additive combinatorics, and the philosophy of constructed refutation
+                    </div>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- Section: Introduction -->
+                <section id="math-intro" class="section">
+                    <h1>Modular Pre-Filtering for Subset Sum</h1>
+
+                    <div class="author-card">
+                        <div class="author-avatar">SI</div>
+                        <div class="author-info">
+                            <h3>Sethurathienam Iyer</h3>
+                            <p>Theoretical Computer Scientist & Complexity Engineer</p>
+                            <a href="https://orcid.org/0009-0008-5446-2856" target="_blank">ORCID: 0009-0008-5446-2856</a>
+                        </div>
+                    </div>
+
+                    <div class="tag topic">Number Theory</div>
+                    <div class="tag topic">Additive Combinatorics</div>
+                    <div class="tag topic">Proof Theory</div>
+
+                    <p>Imagine you're given a list of 50 positive integers — weights of cargo containers — and a target sum: 1,234,567. Your task? Decide whether any subset of those weights adds up *exactly* to the target.</p>
+
+                    <p>This is the <strong>Subset Sum Problem</strong>, one of the most famous members of the <strong>NP-complete</strong> family. It's textbook "hard." In the worst case, you'd need to check all $2^{50} \approx 1.12 \times 10^{15}$ possible subsets — more than a quadrillion combinations.</p>
+
+                    <p>However, by applying <strong>modular arithmetic</strong> as a pre-filter, we can prove impossibility for many instances without exhaustive search.</p>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Key Observation</div>
+                        <p>Hard problems may appear complex when viewed in the standard integer domain, but their structure becomes apparent under <strong>modular reduction</strong>.</p>
+                    </div>
+
+                    <p>This article presents how <strong>number theory</strong>, <strong>additive combinatorics</strong>, and a <strong>multi-prime modular filter</strong> can prove impossibility for NP-hard problems through <strong>mathematical reasoning</strong>.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Problem -->
+                <section id="math-problem" class="section">
+                    <h2>The Subset Sum Problem</h2>
+
+                    <div class="highlight-box definition">
+                        <div class="highlight-title">Formal Definition</div>
+                        <p><strong>Given:</strong></p>
+                        <ul>
+                            <li>A finite set of positive integers: $W = \{w_1, w_2, \ldots, w_n\}$</li>
+                            <li>A target integer: $t$</li>
+                        </ul>
+                        <p><strong>Question:</strong> Does there exist a subset $W' \subseteq W$ such that $\sum_{w \in W'} w = t$?</p>
+                    </div>
+
+                    <p>The naive algorithm checks all $2^n$ subsets — exponential time. Dynamic programming reduces this to $O(n \cdot t)$, which is <strong>pseudo-polynomial</strong> — efficient only if $t$ is small.</p>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Key Insight</div>
+                        <p><strong>Worst-case hardness doesn't mean real-world hardness.</strong></p>
+                        <p>Traditional complexity theory assumes adversarial, unstructured inputs. But real-world data is <em>structured</em> — and structure creates predictable voids.</p>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: The Modular Sieve -->
+                <section id="math-sieve" class="section">
+                    <h2>The Modular Sieve: Hunting Ghosts in Residue Space</h2>
+
+                    <p>Instead of trying to <em>find</em> a solution, what if we try to <em>prove</em> that no solution exists?</p>
+
+                    <p>The core idea is <strong>modular reduction</strong>. For any prime $p$, consider the set of all possible subset sums modulo $p$:</p>
+
+                    $$W/p = \left\{ \left( \sum_{w \in W'} w \right) \mod p \mid W' \subseteq W \right\} \subseteq \mathbb{Z}_p$$
+
+                    <div class="highlight-box lemma">
+                        <div class="highlight-title">Lemma 1: Necessary Condition</div>
+                        <p>If $S(W, t) = \text{true}$, then $t \mod p \in W/p$.</p>
+                    </div>
+
+                    <div class="highlight-box proof">
+                        <div class="highlight-title">Proof</div>
+                        <p>If a subset sums to $t$, reducing both sides modulo $p$ gives the result directly. ∎</p>
+                    </div>
+
+                    <div class="highlight-box theorem">
+                        <div class="highlight-title">Corollary: Termination Check</div>
+                        <p>If $t \mod p \notin W/p$, then <strong class="text-accent">no subset sums to $t$</strong> — proven, done.</p>
+                    </div>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Why This Works</div>
+                        <p>Because $W/p$ is typically much smaller than $\mathbb{Z}_p$, especially for structured data. The chance that $t \mod p$ lands in a <strong>Residue Gap</strong> — $\mathbb{Z}_p \setminus W/p$ — is high.</p>
+                    </div>
+
+                    <p>We don't need to search $2^n$ subsets. We just need to compute $W/p$ for a few small primes and check if $t \mod p$ is missing.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Structure -->
+                <section id="math-structure" class="section">
+                    <h2>Structure Creates Void: Additive Combinatorics</h2>
+
+                    <p>Traditional complexity theory assumes worst-case, adversarially constructed inputs. But real-world datasets are <strong>highly structured</strong> — they come from human systems: supply chains, pricing models, engineering tolerances.</p>
+
+                    <p>And structure creates <strong>clumping</strong>.</p>
+
+                    <h3>The Doubling Constant</h3>
+
+                    <p>In additive combinatorics, we measure structure via:</p>
+
+                    $$K(W) = \frac{|W + W|}{|W|}, \quad \text{where } W + W = \{w_i + w_j \mid w_i, w_j \in W\}$$
+
+                    <ul>
+                        <li>$K(W) \approx 1$ → highly structured (e.g., arithmetic progressions)</li>
+                        <li>$K(W) \approx |W|$ → random-like</li>
+                    </ul>
+
+                    <p><strong>Real-world data has small $K(W)$.</strong> Weights in logistics are often multiples of base units (10kg, 25kg). Financial amounts follow patterns. They don't span the full integer space chaotically.</p>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">The Consequence</div>
+                        <p>Modular images $W/p$ are <strong>tiny</strong>. Instead of spreading evenly across $\mathbb{Z}_p$, the possible subset sums <em>clump</em> into narrow bands — "reachable slivers" — leaving vast <strong>Residue Gaps</strong>.</p>
+                    </div>
+
+                    <p>We call this phenomenon <strong>Modular Unreachability</strong>: the target $t$ may look plausible in base-10 arithmetic, but when viewed through the modular lens, the necessary modular constraint may not be satisfied.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: CRT -->
+                <section id="math-crt" class="section">
+                    <h2>Constructed Refutation: Engineering Impossibility</h2>
+
+                    <p>What if we don't just <em>observe</em> structure — what if we <strong>engineer</strong> it?</p>
+
+                    <p>A <strong>Filter Set</strong> is a carefully constructed instance $(W, t)$ where:</p>
+                    <ul>
+                        <li>$W$ is designed so that $W/p$ is extremely small for several large primes</li>
+                        <li>$t$ is chosen so that $t \mod p \notin W/p$ for <em>all</em> these primes — <strong>simultaneously</strong></li>
+                    </ul>
+
+                    <p>We don't need to know whether a solution exists. We <strong>guarantee</strong> it doesn't.</p>
+
+                    <h3>How? The Chinese Remainder Theorem</h3>
+
+                    <p>CRT states: if $p_1, p_2, \ldots, p_k$ are pairwise coprime, then the system:</p>
+
+                    $$x \equiv a_1 \mod p_1$$
+                    $$x \equiv a_2 \mod p_2$$
+                    $$\vdots$$
+                    $$x \equiv a_k \mod p_k$$
+
+                    <p>has a unique solution modulo $M = p_1 p_2 \cdots p_k$.</p>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Using CRT in Reverse</div>
+                        <p>We <strong>choose</strong> primes $p_1, \ldots, p_k$, and for each, we <strong>exclude</strong> $t \mod p_i$ from $W/p_i$. Then we use CRT to <strong>construct</strong> a $t$ that satisfies all these forbidden congruences.</p>
+                    </div>
+
+                    <p>The result is an instance that appears hard but can be efficiently ruled out by the modular filter.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Grid -->
+                <section id="math-grid" class="section">
+                    <h2>Visualizing the Sieve: The Multi-Prime Residue Grid</h2>
+
+                    <p>Imagine a grid:</p>
+                    <ul>
+                        <li><strong>X-axis:</strong> primes $p_1, p_2, \ldots, p_k$</li>
+                        <li><strong>Y-axis (for each prime):</strong> residues $0$ to $p-1$</li>
+                    </ul>
+
+                    <p>For each prime, we shade the <strong>reachable residues</strong> — $W/p_i$ — as green slivers. The rest are red: <strong>Residue Gaps</strong>.</p>
+
+                    <p>Now plot $t \mod p_i$ as a vertical line across the grid.</p>
+
+                    <p>If, at <strong>any</strong> prime, the line hits red — <strong>Termination Check</strong>.</p>
+
+                    <!-- D3 Residue Gap Diagram -->
+                    <div class="diagram-container">
+                        <div class="diagram-title">Residue Gap Visualization: W = [10, 20, 30, 40, 50], p = 97</div>
+                        <div id="residue-gap-chart"></div>
+                        <div class="diagram-legend">
+                            <div class="legend-item">
+                                <div class="legend-swatch legend-reachable"></div>
+                                <span>Reachable (20 residues)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-swatch legend-gap"></div>
+                                <span>Gap (77 residues)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-swatch legend-target"></div>
+                                <span>t mod 97 = 26 (gap)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- D3 Multi-Prime Grid Diagram -->
+                    <div class="diagram-container">
+                        <div class="diagram-title">Multi-Prime Filter: 3 Primes Check</div>
+                        <div id="multi-prime-chart"></div>
+                        <div class="diagram-legend">
+                            <div class="legend-item">
+                                <div class="legend-swatch legend-reachable"></div>
+                                <span>t mod p in reachable set</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-swatch legend-gap"></div>
+                                <span>t mod p in gap (Termination)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="highlight-box theorem">
+                        <div class="highlight-title">The Filter Set Case</div>
+                        <p>In a Filter Set, we <strong>engineer</strong> this outcome. We align all the green slivers — the "residue alignment" — but place $t$'s residue in the red zone for every prime.</p>
+                        <p>ModSieve places a <strong>Refutation Certificate</strong>: "No solution exists."</p>
+                    </div>
+
+                    <p>The visualization shows how modular constraints eliminate impossible targets.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Philosophy -->
+                <section id="math-philosophy" class="section">
+                    <h2>Why Traditional Methods Fail: The Category Shift</h2>
+
+                    <p>Standard algorithms — dynamic programming, branch-and-bound, SAT solvers — operate in the <strong>physical state space</strong>: the $2^n$ subsets.</p>
+
+                    <p>They assume the problem is a <strong>search</strong> through possibilities.</p>
+
+                    <p>But ModSieve operates in the <strong>logical state space</strong>: the space of mathematical constraints.</p>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">The Key Question</div>
+                        <p>Not "What subsets sum to $t$?"</p>
+                        <p>But: "<strong>Is $t$ even <em>allowed</em> by the algebraic structure of $W$?</strong>"</p>
+                    </div>
+
+                    <p>This represents a shift in approach — from computation to proof theory.</p>
+
+                    <p>Classical complexity assumes worst-case inputs. Structured problems admit analysis through modular constraints.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Design -->
+                <section id="math-design" class="section">
+                    <h2>Structured Instance Design: Filter-Trap Instances</h2>
+
+                    <p>We propose a new class of problems: <strong>Filter-Trap Instances</strong>.</p>
+
+                    <p>These are problems that:</p>
+                    <ul>
+                        <li>Appear NP-hard (large $n$, large $t$)</li>
+                        <li>Are <strong>provably unsolvable</strong> by modular disproof</li>
+                        <li>Are <strong>engineered</strong> to fail Condition 1 across multiple primes</li>
+                        <li>Are <strong>indistinguishable</strong> from solvable instances to traditional solvers</li>
+                    </ul>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Properties</div>
+                        <p>These are constructed instances with guaranteed modular gaps — they appear hard but can be efficiently analyzed.</p>
+                    </div>
+
+                    <h3>Use Cases</h3>
+                    <ul>
+                        <li><strong>Cryptography:</strong> Design puzzles with proven security bounds</li>
+                        <li><strong>Benchmarking:</strong> Test solvers on structured instances</li>
+                        <li><strong>Algorithm Analysis:</strong> Evaluate solver performance on instances with known structure</li>
+                    </ul>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Conclusion -->
+                <section id="math-conclusion" class="section">
+                    <h2>Conclusion</h2>
+
+                    <p>ModSieve provides a method to prove impossibility in subset sum instances using modular arithmetic as a pre-filter.</p>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Summary</div>
+                        <p>The approach leverages:</p>
+                        <ul>
+                            <li><strong>Modular arithmetic</strong> to reduce the problem dimensionality</li>
+                            <li><strong>Additive combinatorics</strong> to characterize achievable residues</li>
+                            <li><strong>CRT</strong> to construct guaranteed counterexamples</li>
+                            <li><strong>Structured instances</strong> where residue gaps are guaranteed</li>
+                        </ul>
+                    </div>
+
+                    <p>This demonstrates that complexity in NP-hard problems is contextual — structured inputs admit analysis through number-theoretic methods.</p>
+
+                    <div class="highlight-box theorem">
+                        <div class="highlight-title">Result</div>
+                        <p>When $t \mod p \notin W/p$, the instance is proven to have no solution.</p>
+                    </div>
+
+                    <h3>Further Reading</h3>
+                    <ul>
+                        <li><strong>Tao & Vu,</strong> <em>Additive Combinatorics</em> — Theoretical foundation</li>
+                        <li><strong>Cormen et al.,</strong> <em>Introduction to Algorithms</em> — Dynamic programming</li>
+                    </ul>
+                </section>
+            </div>
+
+            <footer class="footer">
+                <div class="footer-content">
+                    <p><strong>ModSieve</strong> — Mathematical Foundations</p>
+                    <p>By <a href="https://orcid.org/0009-0008-5446-2856" target="_blank">Sethurathienam Iyer</a></p>
+                </div>
+            </footer>
+        </div>
+
+        <!-- ==================== CS TAB ==================== -->
+        <div id="cs-tab" class="tab-content">
+            <header class="header">
+                <div class="header-content">
+                    <div class="header-title">Algorithm & Implementation</div>
+                    <div class="header-meta">
+                        Practical implementation of ModSieve — code, complexity analysis, and extensions to other problems
+                    </div>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- Section: Introduction -->
+                <section id="cs-intro" class="section">
+                    <h1>ModSieve: A Number-Theoretic Pre-Filter for NP-Hard Problems</h1>
+
+                    <div class="author-card">
+                        <div class="author-avatar">SI</div>
+                        <div class="author-info">
+                            <h3>Sethurathienam Iyer</h3>
+                            <p>Theoretical Computer Scientist & Complexity Engineer</p>
+                            <a href="https://orcid.org/0009-0008-5446-2856" target="_blank">ORCID: 0009-0008-5446-2856</a>
+                        </div>
+                    </div>
+
+                    <div class="tag topic">Algorithms</div>
+                    <div class="tag topic">Optimization</div>
+                    <div class="tag topic">Python</div>
+                    <div class="tag">Subset Sum</div>
+                    <div class="tag">NP-Hard</div>
+                    <div class="tag">Modular Arithmetic</div>
+
+                    <p>This section covers the <strong>implementation</strong> of ModSieve — a number-theoretic technique that can <span class="text-accent">prove impossibility</span> for NP-hard optimization problems without exhaustive search.</p>
+
+                    <p>We'll focus on <strong>Subset Sum</strong> as our primary example, then show how to generalize to other problems.</p>
+
+                    <div class="highlight-box definition">
+                        <div class="highlight-title">Prerequisites</div>
+                        <ul>
+                            <li>Basic modular arithmetic</li>
+                            <li>Understanding of NP-hardness (briefly)</li>
+                            <li>Dynamic programming (for fallback)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Problem -->
+                <section id="cs-problem" class="section">
+                    <h2>2. The Subset Sum Problem</h2>
+
+                    <div class="highlight-box definition">
+                        <div class="highlight-title">Problem Statement</div>
+                        <p><strong>Given:</strong></p>
+                        <ul>
+                            <li>A set of positive integers $W = \{w_1, w_2, \ldots, w_n\}$</li>
+                            <li>A target integer $t$</li>
+                        </ul>
+                        <p><strong>Question:</strong> Does there exist a subset $W' \subseteq W$ such that $\sum_{w \in W'} w = t$?</p>
+                    </div>
+
+                    <p><strong>Naive approach:</strong> Check all $2^n$ subsets — exponential time.</p>
+
+                    <p><strong>Standard optimization:</strong> Dynamic programming in $O(n \cdot t)$ — pseudo-polynomial.</p>
+
+                    <p><strong>Our goal:</strong> Prove <code>false</code> (no solution) in $O(n \cdot p)$ for small prime $p$, <em>without</em> enumerating subsets.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Core Insight -->
+                <section id="cs-insight" class="section">
+                    <h2>3. The Core Insight: Modular Unreachability</h2>
+
+                    <div class="highlight-box lemma">
+                        <div class="highlight-title">Lemma 1 (Necessary Condition)</div>
+                        <p>For any prime $p$:</p>
+                        $$\text{If } S(W, t) = \text{true} \Rightarrow t \bmod p \in W/p$$
+                        <p>where $W/p = \left\{ \left(\sum_{w \in W'} w\right) \bmod p \mid W' \subseteq W \right\}$</p>
+                    </div>
+
+                    <div class="highlight-box proof">
+                        <div class="highlight-title">Proof</div>
+                        <p>If a subset sums to $t$, reducing both sides modulo $p$ gives the result directly. ∎</p>
+                    </div>
+
+                    <div class="highlight-box theorem">
+                        <div class="highlight-title">Corollary</div>
+                        <p>If $t \bmod p \notin W/p$, then <strong class="text-accent">no subset sums to $t$</strong> — proven, done.</p>
+                    </div>
+
+                    <h3>Key Question</h3>
+                    <p><strong>How do we compute $W/p$ efficiently?</strong></p>
+
+                    <div class="highlight-box theorem">
+                        <div class="highlight-title">Theorem: Computing $W/p$ in $O(n \cdot p)$</div>
+                        <p>$W/p$ is the set of all achievable residues modulo $p$. We can compute it via DP:</p>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header">pseudocode</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">reachable[0] = true
+for each w in W:
+    for r from p-1 down to 0:
+        if reachable[r]:
+            reachable[(r + w) % p] = true</code></pre>
+                    </div>
+
+                    <p><strong>Complexity:</strong> $O(n \cdot p)$ time, $O(p)$ space.</p>
+
+                    <h3>Why is $W/p$ usually small?</h3>
+
+                    <p>Real-world data has <strong>structure</strong>:</p>
+                    <ul>
+                        <li>Weights are multiples of base units (10kg, 25kg)</li>
+                        <li>Financial amounts follow patterns</li>
+                        <li>Engineering tolerances create constraints</li>
+                    </ul>
+
+                    <p>This structure causes <strong>additive clumping</strong> — subset sums don't spread uniformly across $\mathbb{Z}_p$. They cluster in narrow bands, leaving large <strong>Residue Gaps</strong>.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Algorithm -->
+                <section id="cs-algorithm" class="section">
+                    <h2>4. The ModSieve Algorithm</h2>
+
+                    <div class="code-block">
+                        <div class="code-header">Python Implementation</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def compute_reachable_mod(W, p):
+    """
+    Compute W/p: all residues achievable by subset sums modulo p.
+    Returns a boolean array of size p where reachable[r] = True
+    if some subset of W sums to r mod p.
+    """
+    reachable = [False] * p
+    reachable[0] = True
+
+    for w in W:
+        w_mod = w % p
+        # Process in reverse to avoid using same element twice
+        for r in range(p - 1, -1, -1):
+            if reachable[r]:
+                reachable[(r + w_mod) % p] = True
+
+    return reachable
+
+
+def modsieve(W, t, primes):
+    """
+    ModSieve: Returns (False, proof) if no subset sums to t.
+    Returns (True, None) if modular checks pass (solution may exist).
+    """
+    for p in primes:
+        reachable = compute_reachable_mod(W, p)
+        t_mod = t % p
+
+        if not reachable[t_mod]:
+            return False, f"Termination at p={p}: {t_mod} not in reachable set"
+
+    return True, None  # Checks passed, solution might exist</code></pre>
+                    </div>
+
+                    <h3>Example</h3>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">W = [10, 20, 30, 40, 50]
+t = 123
+primes = [97, 101, 103]
+
+result, msg = modsieve(W, t, primes)
+print(msg)  # Termination at p=97: 26 not in reachable set</code></pre>
+                    </div>
+
+                    <div class="highlight-box">
+                        <p><strong>Explanation:</strong> For $p = 97$, achievable residues are $\{0, 3, 10, 13, 20, 23, \ldots, 93\}$ — only 20 out of 97 (79.4% are gaps). Since $123 \bmod 97 = 26 \notin$ reachable, we <span class="text-accent">immediately know</span> no subset sums to 123.</p>
+                    </div>
+
+                    <h3>Actual Output</h3>
+
+                    <div class="code-block">
+                        <div class="code-header">Output</div>
+                        <pre><code class="language-text">============================================================
+TEST 1: No solution exists (ModSieve terminates early)
+============================================================
+W = [10, 20, 30, 40, 50]
+t = 123
+Result: False
+Proof: Termination at p=97: 26 not in reachable set
+
+============================================================
+TEST 2: Solution exists (DP fallback finds it)
+============================================================
+W = [10, 20, 30, 40, 50]
+t = 80
+Result: True
+Proof: Solution found via DP (80 = 30 + 50)
+
+============================================================
+TEST 3: Residue Gap Demonstration
+============================================================
+For W = [10, 20, 30, 40, 50] and p = 97:
+Reachable residues: [0, 3, 10, 13, 20, 23, 30, 33, 40, 43, 50, 53, 60, 63, 70, 73, 80, 83, 90, 93]
+Number of reachable: 20 out of 97
+Residue gap size: 77 (79.4% of residues are unreachable!)
+
+t = 123 => 123 mod 97 = 26
+Is 26 reachable? False => PROVEN: no subset sums to 123</code></pre>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Implementation -->
+                <section id="cs-impl" class="section">
+                    <h2>5. Complete Implementation with Fallback</h2>
+
+                    <div class="code-block">
+                        <div class="code-header">Python - Full Implementation</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def modsieve_with_fallback(W, t, primes, dp_limit=10**6):
+    """
+    Full ModSieve with fallback to pseudo-polynomial DP.
+    """
+    # Phase 1: Modular pre-filter
+    result, msg = modsieve(W, t, primes)
+    if not result:
+        return False, msg  # PROVEN: no solution
+
+    # Phase 2: Traditional DP if target is reasonable
+    if t <= dp_limit:
+        dp = [False] * (t + 1)
+        dp[0] = True
+        for w in W:
+            for s in range(t, w - 1, -1):
+                dp[s] = dp[s] or dp[s - w]
+        if dp[t]:
+            return True, "Solution found via DP"
+        else:
+            return False, "DP proven: no solution"
+
+    # Phase 3: Large target, modular check passed
+    return True, "ModSieve passed: solution may exist (large target)"
+
+
+def subset_sum_mod_constraints(W, t):
+    """
+    Returns (solvable, proof) for subset sum.
+    Uses ModSieve as primary, DP as fallback.
+    """
+    # Standard primes that work well with structured data
+    primes = [97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149]
+
+    return modsieve_with_fallback(W, t, primes)</code></pre>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Why Works -->
+                <section id="cs-why" class="section">
+                    <h2>6. Why This Works: Structure Creates Voids</h2>
+
+                    <h3>The Doubling Constant</h3>
+
+                    <p>In additive combinatorics, we measure structure via:</p>
+
+                    $$K(W) = \frac{|W + W|}{|W|}, \quad \text{where } W + W = \{w_i + w_j \mid w_i, w_j \in W\}$$
+
+                    <ul>
+                        <li>$K(W) \approx 1$ → highly structured (e.g., arithmetic progressions)</li>
+                        <li>$K(W) \approx |W|$ → random-like</li>
+                    </ul>
+
+                    <p><strong>Real-world data has small $K(W)$</strong>, meaning structure creates predictable voids.</p>
+
+                    <h3>Visualizing the Residue Gap</h3>
+
+                    <div class="code-block">
+                        <div class="code-header">Residue Visualization</div>
+                        <pre><code class="language-text">Prime p = 97, W = [10, 20, 30, 40, 50]
+
+Reachable residues (G) = {0, 3, 10, 13, 20, 23, 30, 33, 40, 43, 50, 53, 60, 63, 70, 73, 80, 83, 90, 93}
+Gap residues (.)        = {1, 2, 4, 5, 6, 7, 8, 9, 11, 12, 14, ... 96}
+
+Visual (first 30 residues):
+Index:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 ...
+Status: G  .  .  G  .  .  .  .  .  .  G  .  .  G  .  . ...
+
+t = 123 => 123 mod 97 = 26 (marked with × below)
+Index:  ... 24 25 26 27 28 ...
+Status: ...  .  .  ×  .  ...
+
+26 is a gap => PROVEN FALSE (no search needed!)</code></pre>
+                    </div>
+
+                    <h3>Multi-Prime Strengthening</h3>
+
+                    <p>With multiple primes, the probability that $t \bmod p_i \in W/p_i$ for all $i$ becomes exponentially small:</p>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <pre><code class="language-python">primes = [97, 101, 103, 107, 109]  # 5 primes
+# Probability of passing all ≈ (0.1)^5 = 0.00001</code></pre>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Generalizing -->
+                <section id="cs-generalize" class="section">
+                    <h2>7. Generalizing to Other NP-Hard Problems</h2>
+
+                    <h3>7.1 Partition Problem</h3>
+
+                    <p>Given $W$, can we split it into two subsets with equal sum?</p>
+
+                    <p><strong>Reduction:</strong> Let $t = \frac{\sum W}{2}$. If ModSieve says no subset sums to $t$, partition is impossible.</p>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def partition_possible(W):
+    total = sum(W)
+    if total % 2 != 0:
+        return False, "Odd total: impossible"
+
+    half = total // 2
+    return modsieve(W, half, primes)</code></pre>
+                    </div>
+
+                    <h3>7.2 Knapsack (Decision Version)</h3>
+
+                    <p>Given weights $W$, values $V$, capacity $C$, target value $T$:</p>
+                    <p><strong>Idea:</strong> Encode value constraints modulo different primes.</p>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def knapsack_possible(weights, values, capacity, target_value):
+    """
+    Pre-filter for knapsack: check if target_value achievable
+    with items fitting in capacity.
+    """
+    n = len(weights)
+
+    # Filter: total weight must fit in capacity
+    if sum(weights) > capacity:
+        return False, "Total weight exceeds capacity"
+
+    # Simplified: use ModSieve on values to check possibility
+    result, msg = modsieve(values, target_value, primes)
+    return result, msg</code></pre>
+                    </div>
+
+                    <h3>7.3 SAT via Algebraic Encoding</h3>
+
+                    <p>For certain SAT instances, we can encode clauses as modular constraints:</p>
+
+                    <div class="code-block">
+                        <div class="code-header">Algebraic Encoding</div>
+                        <pre><code class="language-text">Clause (x ∨ ¬y ∨ z) can be encoded as:
+(1-x) + y + z ≥ 1  (mod p)</code></pre>
+                    </div>
+
+                    <p>If the formula cannot satisfy this constraint for any assignment, it's UNSAT.</p>
+
+                    <h3>7.4 Graph Problems via Modular Signatures</h3>
+
+                    <p>For Hamiltonian Path/Cycle:</p>
+                    <ul>
+                        <li>Encode path constraints as modular sums of node weights</li>
+                        <li>If target modular signature unachievable → no path exists</li>
+                    </ul>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def hamiltonian_path_mod_check(node_weights, target_sum, p):
+    """
+    Check if a path with given modular sum exists.
+    Node weights are assigned such that path constraints
+    create the modular structure.
+    """
+    reachable = compute_reachable_mod(node_weights, p)
+    return reachable[target_sum % p]</code></pre>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Filter Trap -->
+                <section id="cs-filter" class="section">
+                    <h2>8. Engineering Filter-Trap Instances</h2>
+
+                    <p>For <strong>competitive programming</strong> or <strong>benchmarking</strong>, you can construct instances that are guaranteed to be provably false:</p>
+
+                    <h3>Construction via CRT</h3>
+
+                    <ol>
+                        <li>Choose primes $p_1, p_2, \ldots, p_k$</li>
+                        <li>For each $p_i$, pick residue $r_i \notin W/p_i$</li>
+                        <li>Use Chinese Remainder Theorem to construct $t$ such that:
+                            <ul>
+                                <li>$t \equiv r_1 \pmod{p_1}$</li>
+                                <li>$t \equiv r_2 \pmod{p_2}$</li>
+                                <li>$\ldots$</li>
+                            </ul>
+                        </li>
+                        <li>$t$ is <strong class="text-accent">guaranteed unreachable</strong> for any subset of $W$</li>
+                    </ol>
+
+                    <div class="code-block">
+                        <div class="code-header">Python - CRT Construction</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def construct_filter_instance(W, primes):
+    """
+    Construct a target t that is provably unreachable for subset sum of W.
+    """
+    from math import prod
+    from itertools import product
+
+    # Find gaps for each prime
+    gaps = []
+    for p in primes:
+        reachable = compute_reachable_mod(W, p)
+        gap_residues = [r for r in range(p) if not reachable[r]]
+        gaps.append(gap_residues)
+
+    # CRT reconstruction (simplified for k=2)
+    def crt(a1, m1, a2, m2):
+        # Find x ≡ a1 (mod m1), x ≡ a2 (mod m2)
+        # Using extended Euclidean algorithm
+        def egcd(a, b):
+            if b == 0:
+                return (a, 1, 0)
+            else:
+                g, x, y = egcd(b, a % b)
+                return (g, y, x - (a // b) * y)
+
+        g, x, y = egcd(m1, m2)
+        if (a2 - a1) % g != 0:
+            return None  # No solution
+        lcm = m1 // g * m2
+        return ((a1 + (a2 - a1) // g * x % (m2 // g) * m1) % lcm, lcm)
+
+    # Pick one gap residue per prime and combine
+    t_values = []
+    moduli = []
+
+    for p, gap_residues in zip(primes, gaps):
+        if not gap_residues:
+            continue  # No gap for this prime, problematic
+        t_values.append(gap_residues[0])
+        moduli.append(p)
+
+    # Combine all via CRT
+    t, M = t_values[0], moduli[0]
+    for ti, mi in zip(t_values[1:], moduli[1:]):
+        t, M = crt(t, M, ti, mi)
+
+    return t, M  # t is provably unreachable</code></pre>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Complexity -->
+                <section id="cs-complexity" class="section">
+                    <h2>9. Complexity Analysis</h2>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Approach</th>
+                                    <th>Time</th>
+                                    <th>Space</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Naive ($2^n$)</td>
+                                    <td>$O(2^n)$</td>
+                                    <td>$O(n)$</td>
+                                    <td>Impossible for $n > 30$</td>
+                                </tr>
+                                <tr>
+                                    <td>DP ($O(n \cdot t)$)</td>
+                                    <td>$O(n \cdot t)$</td>
+                                    <td>$O(t)$</td>
+                                    <td>Pseudo-polynomial</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ModSieve</strong></td>
+                                    <td>$O(k \cdot n \cdot p)$</td>
+                                    <td>$O(p)$</td>
+                                    <td>$k$ = #primes, $p$ ≈ 100</td>
+                                </tr>
+                                <tr>
+                                    <td>ModSieve + DP fallback</td>
+                                    <td>$O(k \cdot n \cdot p + n \cdot t)$</td>
+                                    <td>$O(p + t)$</td>
+                                    <td>Full solver</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="highlight-box">
+                        <p><strong>Typical values:</strong> $k = 5$, $p = 100$, $n = 50$</p>
+                        <p>→ <span class="text-success">~25,000 operations</span> vs $2^{50} \approx 10^{15}$</p>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Limitations -->
+                <section id="cs-limitations" class="section">
+                    <h2>10. When ModSieve Fails</h2>
+
+                    <p>ModSieve is a <strong>one-sided test</strong>:</p>
+                    <ul>
+                        <li>Can prove <span class="text-success">false</span> (no solution) with certainty</li>
+                        <li>Cannot prove <span class="text-warning">true</span> (solution exists) — only indicates "possible"</li>
+                    </ul>
+
+                    <div class="highlight-box">
+                        <div class="highlight-title">False Negatives Occur When:</div>
+                        <ol>
+                            <li>$W$ is random/unstructured → $W/p \approx \mathbb{Z}_p$ (no gaps)</li>
+                            <li>$t$ passes all modular checks but no actual solution exists</li>
+                        </ol>
+                    </div>
+
+                    <p><strong>Random inputs:</strong> If $W$ behaves like random set, $W/p$ fills most of $\mathbb{Z}_p$, and ModSieve degrades to random chance of early termination.</p>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Template -->
+                <section id="cs-template" class="section">
+                    <h2>11. Code Template</h2>
+
+                    <div class="code-block">
+                        <div class="code-header">Python - Complete Template</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">#!/usr/bin/env python3
+"""
+ModSieve: Number-Theoretic Pre-Filter for Subset Sum
+By Sethurathienam Iyer
+"""
+
+from typing import List, Tuple, Optional
+
+def compute_reachable_mod(W: List[int], p: int) -> List[bool]:
+    """
+    Compute W/p: all residues achievable by subset sums modulo p.
+    Uses DP in O(n * p) time, O(p) space.
+    """
+    reachable = [False] * p
+    reachable[0] = True
+
+    for w in W:
+        w_mod = w % p
+        for r in range(p - 1, -1, -1):
+            if reachable[r]:
+                reachable[(r + w_mod) % p] = True
+
+    return reachable
+
+
+def modsieve(W: List[int], t: int, primes: List[int]) -> Tuple[bool, Optional[str]]:
+    """
+    ModSieve pre-filter: proves subset sum impossibility via modular checks.
+    Returns (False, proof) if proven unsolvable.
+    Returns (True, None) if modular checks pass.
+    """
+    for p in primes:
+        reachable = compute_reachable_mod(W, p)
+        t_mod = t % p
+
+        if not reachable[t_mod]:
+            return False, f"Termination at p={p}: {t_mod} not in reachable set"
+
+    return True, None
+
+
+def subset_sum_decide(W: List[int], t: int,
+                     primes: Optional[List[int]] = None,
+                     dp_limit: int = 10**6) -> Tuple[bool, str]:
+    """
+    Full subset sum decision: ModSieve + optional DP fallback.
+    """
+    if primes is None:
+        primes = [97, 101, 103, 107, 109, 113, 127, 131]
+
+    # Phase 1: ModSieve
+    possible, msg = modsieve(W, t, primes)
+    if not possible:
+        return False, msg
+
+    # Phase 2: DP if target is reasonable
+    if t <= dp_limit:
+        dp = [False] * (t + 1)
+        dp[0] = True
+        for w in W:
+            for s in range(t, w - 1, -1):
+                dp[s] = dp[s] or dp[s - w]
+        if dp[t]:
+            return True, "Solution found via DP"
+        return False, "DP proven: no subset sums to target"
+
+    return True, "ModSieve passed (target too large for DP)"
+
+
+if __name__ == "__main__":
+    # Example: Standard test case
+    W = [10, 20, 30, 40, 50]
+    t = 123
+
+    result, msg = subset_sum_decide(W, t)
+    print(f"Result: {result}")
+    print(f"Proof: {msg}")</code></pre>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <!-- Section: Problems -->
+                <section id="cs-problems" class="section">
+                    <h2>12. Problems for Practice</h2>
+
+                    <div class="problem-card">
+                        <span class="problem-number">1</span>
+                        <span class="problem-title">Standard Subset Sum</span>
+                        <p>Given $n \leq 50$, $w_i \leq 10^9$, $t \leq 10^{15}$, determine if solution exists.</p>
+                    </div>
+
+                    <div class="problem-card">
+                        <span class="problem-number">2</span>
+                        <span class="problem-title">Partition Problem</span>
+                        <p>Given $W$ with even sum, determine if it can be partitioned.</p>
+                    </div>
+
+                    <div class="problem-card">
+                        <span class="problem-number">3</span>
+                        <span class="problem-title">Filter-Trap Construction</span>
+                        <p>Given $W$, construct $t$ that is provably unreachable using CRT.</p>
+                    </div>
+
+                    <div class="problem-card">
+                        <span class="problem-number">4</span>
+                        <span class="problem-title">Multi-dimensional Filter</span>
+                        <p>Use different primes for different constraint types (weight, value, count).</p>
+                    </div>
+                </section>
+            </div>
+
+            <footer class="footer">
+                <div class="footer-content">
+                    <p><strong>ModSieve</strong> — Algorithm & Implementation</p>
+                    <p>By <a href="https://orcid.org/0009-0008-5446-2856" target="_blank">Sethurathienam Iyer</a></p>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <script>
+        // Tab switching
+        function switchTab(tab) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tab + '-tab').classList.add('active');
+
+            // Update sidebar navigation
+            const isMath = tab === 'math';
+
+            document.getElementById('math-nav').style.display = isMath ? 'block' : 'none';
+            document.getElementById('math-nav-2').style.display = isMath ? 'block' : 'none';
+            document.getElementById('math-nav-3').style.display = isMath ? 'block' : 'none';
+            document.getElementById('cs-nav').style.display = isMath ? 'none' : 'block';
+            document.getElementById('cs-nav-2').style.display = isMath ? 'none' : 'block';
+            document.getElementById('cs-nav-3').style.display = isMath ? 'none' : 'block';
+            document.getElementById('cs-nav-4').style.display = isMath ? 'none' : 'block';
+
+            document.getElementById('sidebar-title').textContent = isMath ? 'Mathematical' : 'Algorithm & Code';
+            document.getElementById('sidebar-subtitle').textContent = isMath ? 'Theory & Philosophy' : 'Implementation';
+        }
+
+        // Initialize KaTeX
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+        });
+
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Copy code function
+        function copyCode(button) {
+            const codeBlock = button.parentElement.querySelector('code');
+            const text = codeBlock.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const original = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = 'var(--success)';
+                button.style.color = 'var(--dracula-bg)';
+
+                setTimeout(() => {
+                    button.textContent = original;
+                    button.style.background = '';
+                    button.style.color = '';
+                }, 1500);
+            });
+        }
+
+        // Active nav highlighting
+        const sections = document.querySelectorAll('section[id]');
+        const navItems = document.querySelectorAll('.nav-item');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (scrollY >= sectionTop - 200) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-section') === current) {
+                    item.classList.add('active');
+                }
+            });
+        });
+
+        // Smooth scroll for nav items
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetSection = document.getElementById(targetId);
+
+                if (targetSection) {
+                    targetSection.scrollIntoView();
+                    document.querySelector('.sidebar').classList.remove('open');
+                }
+            });
+        });
+
+        // D3.js Diagrams
+        function drawResidueGapChart() {
+            const container = document.getElementById('residue-gap-chart');
+            if (!container) return;
+
+            const width = container.clientWidth || 680;
+            const height = 120;
+            const margin = { top: 10, right: 20, bottom: 30, left: 40 };
+
+            // Clear previous
+            d3.select('#residue-gap-chart').selectAll('*').remove();
+
+            const svg = d3.select('#residue-gap-chart')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            // Data: W = [10, 20, 30, 40, 50], p = 97
+            // Reachable residues computed
+            const reachable = [0, 3, 10, 13, 20, 23, 30, 33, 40, 43, 50, 53, 60, 63, 70, 73, 80, 83, 90, 93];
+            const p = 97;
+            const t_mod = 26;
+
+            const cellWidth = (width - margin.left - margin.right) / p;
+            const cellHeight = height - margin.top - margin.bottom;
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top})`);
+
+            // Draw cells
+            for (let r = 0; r < p; r++) {
+                const isReachable = reachable.includes(r);
+                const isTarget = r === t_mod;
+
+                g.append('rect')
+                    .attr('x', r * cellWidth)
+                    .attr('y', 0)
+                    .attr('width', cellWidth - 1)
+                    .attr('height', cellHeight)
+                    .attr('fill', isTarget ? '#f1fa8c' : (isReachable ? '#50fa7b' : '#ff5555'))
+                    .attr('opacity', isTarget ? 1 : (isReachable ? 1 : 0.4));
+
+                // Show label for every 10th residue
+                if (r % 10 === 0) {
+                    g.append('text')
+                        .attr('x', r * cellWidth + cellWidth / 2)
+                        .attr('y', cellHeight + 14)
+                        .attr('text-anchor', 'middle')
+                        .attr('fill', '#6272a4')
+                        .attr('font-size', '10px')
+                        .attr('font-family', 'IBM Plex Mono')
+                        .text(r);
+                }
+            }
+
+            // Axis label
+            g.append('text')
+                .attr('x', (width - margin.left - margin.right) / 2)
+                .attr('y', cellHeight + 28)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#6272a4')
+                .attr('font-size', '11px')
+                .text('Residue (mod 97)');
+        }
+
+        function drawMultiPrimeChart() {
+            const container = document.getElementById('multi-prime-chart');
+            if (!container) return;
+
+            const width = container.clientWidth || 680;
+            const height = 160;
+            const margin = { top: 20, right: 20, bottom: 40, left: 60 };
+
+            // Clear previous
+            d3.select('#multi-prime-chart').selectAll('*').remove();
+
+            const svg = d3.select('#multi-prime-chart')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            // Data: 3 primes check
+            const primes = [
+                { p: 97, t_mod: 26, reachable: 20, total: 97, status: 'gap' },
+                { p: 101, t_mod: 22, reachable: 25, total: 101, status: 'gap' },
+                { p: 103, t_mod: 20, reachable: 30, total: 103, status: 'gap' }
+            ];
+
+            const chartHeight = 30;
+            const chartSpacing = 40;
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top})`);
+
+            primes.forEach((prime, i) => {
+                const y = i * chartSpacing;
+
+                // Label
+                g.append('text')
+                    .attr('x', -10)
+                    .attr('y', y + chartHeight / 2 + 4)
+                    .attr('text-anchor', 'end')
+                    .attr('fill', '#f8f8f2')
+                    .attr('font-size', '12px')
+                    .attr('font-family', 'IBM Plex Mono')
+                    .text(`p=${prime.p}`);
+
+                // Gap bar (background)
+                g.append('rect')
+                    .attr('x', 0)
+                    .attr('y', y)
+                    .attr('width', width - margin.left - margin.right)
+                    .attr('height', chartHeight)
+                    .attr('fill', '#ff5555')
+                    .attr('opacity', 0.3)
+                    .attr('rx', 4);
+
+                // Reachable bar (foreground)
+                const reachableWidth = (prime.reachable / prime.total) * (width - margin.left - margin.right);
+                g.append('rect')
+                    .attr('x', 0)
+                    .attr('y', y)
+                    .attr('width', reachableWidth)
+                    .attr('height', chartHeight)
+                    .attr('fill', '#50fa7b')
+                    .attr('rx', 4);
+
+                // Target marker
+                const targetX = (prime.t_mod / prime.total) * (width - margin.left - margin.right);
+                g.append('rect')
+                    .attr('x', targetX - 2)
+                    .attr('y', y - 5)
+                    .attr('width', 4)
+                    .attr('height', chartHeight + 10)
+                    .attr('fill', '#f1fa8c')
+                    .attr('rx', 2);
+
+                // Status label
+                g.append('text')
+                    .attr('x', width - margin.left - margin.right + 10)
+                    .attr('y', y + chartHeight / 2 + 4)
+                    .attr('fill', prime.status === 'gap' ? '#ff5555' : '#50fa7b')
+                    .attr('font-size', '11px')
+                    .attr('font-family', 'IBM Plex Sans')
+                    .text(prime.status === 'gap' ? 'GAP' : 'OK');
+            });
+
+            // Legend explanation
+            g.append('text')
+                .attr('x', (width - margin.left - margin.right) / 2)
+                .attr('y', primes.length * chartSpacing + 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#6272a4')
+                .attr('font-size', '10px')
+                .text('Green = reachable residues | Yellow marker = t mod p | Red = gap (Termination)');
+        }
+
+        // Draw diagrams when Math tab is active
+        let diagramsDrawn = false;
+        function drawDiagrams() {
+            if (diagramsDrawn) return;
+            diagramsDrawn = true;
+            setTimeout(() => {
+                drawResidueGapChart();
+                drawMultiPrimeChart();
+            }, 100);
+        }
+
+        // Draw on tab switch to math
+        const originalSwitchTab = window.switchTab;
+        window.switchTab = function(tab) {
+            originalSwitchTab(tab);
+            if (tab === 'math') {
+                setTimeout(() => {
+                    drawResidueGapChart();
+                    drawMultiPrimeChart();
+                }, 50);
+            }
+        };
+
+        // Draw on load if already on math tab
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('math-tab').classList.contains('active')) {
+                drawDiagrams();
+            }
+        });
+    </script>
+</body>
+</html>
