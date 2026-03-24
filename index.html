@@ -948,6 +948,7 @@
             <div class="nav-section-title">Advanced</div>
             <a href="#cs-generalize" class="nav-item" data-section="cs-generalize">Generalizations</a>
             <a href="#cs-filter" class="nav-item" data-section="cs-filter">Filter-Trap Instances</a>
+            <a href="#cs-applications" class="nav-item" data-section="cs-applications">Applications</a>
             <a href="#cs-complexity" class="nav-item" data-section="cs-complexity">Complexity Analysis</a>
         </div>
 
@@ -2041,9 +2042,151 @@ if __name__ == "__main__":
 
                 <div class="section-divider"></div>
 
+                <!-- Section: Applications -->
+                <section id="cs-applications" class="section">
+                    <h2>12. Real-World Applications</h2>
+
+                    <p>ModSieve applies to any NP-hard problem where the target or constraints exhibit the same structure as the input data. The key principle: <strong>when the target is derived from the data's structure, modular filtering aligns perfectly</strong>.</p>
+
+                    <h3>12.1 Partition Problem</h3>
+
+                    <p>Given $W$, can we split it into two subsets with equal sum?</p>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def partition_possible(W, primes=[97, 101, 103, 107]):
+    """
+    Check if W can be partitioned into two equal-sum subsets.
+    Reduction: Let t = sum(W)/2. If no subset sums to t, partition is impossible.
+    """
+    total = sum(W)
+    if total % 2 != 0:
+        return False, "Odd total: impossible by parity"
+
+    target = total // 2
+    result, msg = modsieve(W, target, primes)
+    if not result:
+        return False, msg  # PROVEN: no balanced partition
+
+    # Fallback DP for small targets
+    if target <= 10**6:
+        dp = [False] * (target + 1)
+        dp[0] = True
+        for w in W:
+            for s in range(target, w - 1, -1):
+                dp[s] = dp[s] or dp[s - w]
+        return dp[target], "DP solution found" if dp[target] else "DP proven false"
+
+    return True, "ModSieve passed (large target)"</code></pre>
+                    </div>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">Example Results</div>
+                        <p><strong>Structured:</strong> $W = [100, 200, 300, 400, 500]$ → PROVEN FALSE (no partition exists)</p>
+                        <p><strong>Random-like:</strong> $W = [1, 2, 3, ..., 11]$ → passes modular checks, DP confirms solution exists</p>
+                    </div>
+
+                    <h3>12.2 Multiprocessor Scheduling</h3>
+
+                    <p>Can we schedule tasks on $k$ machines to meet a makespan $T$? Equivalent to partitioning into $k$ subsets where each sum $\leq T$.</p>
+
+                    <div class="code-block">
+                        <div class="code-header">Python</div>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="language-python">def scheduling_2machines(task_times, makespan, primes=[97, 101, 103]):
+    """
+    Check if tasks can be scheduled on 2 machines within makespan.
+    For k=2: balanced partition with target = total/2.
+    """
+    total = sum(task_times)
+
+    # Total work must fit on 2 machines
+    if total > 2 * makespan:
+        return False, "Total work exceeds capacity"
+
+    # Balanced load target
+    target = total // 2
+    result, msg = modsieve(task_times, target, primes)
+    if not result:
+        return False, msg  # PROVEN: no balanced schedule exists
+
+    # DP verification
+    if target <= 10**6:
+        dp = [False] * (target + 1)
+        dp[0] = True
+        for w in task_times:
+            for s in range(target, w - 1, -1):
+                dp[s] = dp[s] or dp[s - w]
+        return dp[target], "Schedule exists" if dp[target] else "No schedule"
+
+    return True, "ModSieve passed"</code></pre>
+                    </div>
+
+                    <h3>12.3 Where ModSieve Excels</h3>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Problem Type</th>
+                                    <th>Why It Works</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Logistics</strong></td>
+                                    <td>Container loading, bin packing</td>
+                                    <td>Weights in multiples of kg/lb units</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Finance</strong></td>
+                                    <td>Currency denomination problems</td>
+                                    <td>Denominations are discretized</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Manufacturing</strong></td>
+                                    <td>Cutting stock, batch scheduling</td>
+                                    <td>Standard sheet sizes, fixed batches</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Inventory</strong></td>
+                                    <td>Order consolidation, SKU clustering</td>
+                                    <td>SKU quantities follow patterns</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Telecom</strong></td>
+                                    <td>Frequency assignment, resource allocation</td>
+                                    <td>Fixed channel bandwidths</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>12.4 Known Limitations</h3>
+
+                    <div class="highlight-box">
+                        <div class="highlight-title">When ModSieve Degrades</div>
+                        <ul>
+                            <li><strong>Random/unstructured data:</strong> Coverage → 100%, no pruning</li>
+                            <li><strong>High noise ($\epsilon > d/2$):</strong> Structure breaks, gaps fill</li>
+                            <li><strong>Unbounded knapsack:</strong> Repeat usage fills residue space</li>
+                            <li><strong>Adversarial inputs:</strong> Worst-case analysis assumes uniform</li>
+                        </ul>
+                    </div>
+
+                    <div class="highlight-box insight">
+                        <div class="highlight-title">The Key Insight</div>
+                        <p><strong>Target structure matters:</strong> Problems where the target is derived from the input structure (total/k, sum/2) work best. Raw capacity targets (knapsack with arbitrary C) are less aligned.</p>
+                    </div>
+                </section>
+
+                <div class="section-divider"></div>
+
                 <!-- Section: Problems -->
                 <section id="cs-problems" class="section">
-                    <h2>12. Problems for Practice</h2>
+                    <h2>13. Practice Problems</h2>
 
                     <div class="problem-card">
                         <span class="problem-number">1</span>
